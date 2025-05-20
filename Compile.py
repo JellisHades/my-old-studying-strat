@@ -20,18 +20,14 @@ NewFolder = path.join(ProjectPath, "CompiledReview")
 
 FileIgnore = [
 	"__pycache__",
-	"SelfLearning",
-	"Radicals.py"
 ]
 
 Rename = {
-	"AVSP": "16",
-	"BVSP": "17",
-	"CVSP": "18",
+	
 }
 
 Append = [
-	["Injury Prevention, Safety, And First Aid (Unintentional)", "InjuryPreventionSafetyAndFirstAid.py", "InjuryPreventionSafetyAndFirstAidEnum.py"]
+	
 ]
 
 SkippedFiles = []
