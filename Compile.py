@@ -293,6 +293,6 @@ def UploadFolder(FolderPath, FolderId):
 			print(f"Uploaded file: {ItemName}")
 
 for Folder in os.listdir(NewFolder):
-	UploadFolder(os.path.join(NewFolder, Folder), '1dVlv1rxUc-221NOwMomQtb6hINh8JIsI')
+	UploadFolder(os.path.join(NewFolder, Folder), '')
 
 input("Finished uploading files")
