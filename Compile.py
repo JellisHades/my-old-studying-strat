@@ -20,10 +20,13 @@ NewFolder = path.join(ProjectPath, "CompiledReview")
 
 FileIgnore = [
 	"__pycache__",
+	"SelfLearning",
 ]
 
 Rename = {
-	
+	"XXthCenturyMusic": "20th Century Music",
+	"I_A": "1A",
+	"I_B": "1B",
 }
 
 Append = [
@@ -65,6 +68,8 @@ def AddParagraph(Document, Paragraph, ItemDirectory):
 		ReviewNotes = SourceFileLoader("ReviewCompiler", ItemDirectory).load_module()
 		Answers = ReviewNotes.Answers
 
+		LastParagraphType = 0
+
 		if len(Answers) == 0: 
 			raise ValueError('Module is empty')
 			
@@ -91,12 +96,18 @@ def AddParagraph(Document, Paragraph, ItemDirectory):
 
 				break
 
-			if isinstance(List, str):
+			ParagraphType = (isinstance(List, str) and 1) or (isinstance(List[0], str) and 2) or (isinstance(List[0], list) and 3)
+
+			if LastParagraphType != 0 and LastParagraphType != ParagraphType:
+				Paragraph.add_run("\n")
+			LastParagraphType = ParagraphType
+
+			if ParagraphType == 1:
 				Paragraph.add_run(List + "\n")
-			elif isinstance(List[0], str):
+			elif ParagraphType == 2:
 				Paragraph.add_run(List[0]).bold = True
 				Paragraph.add_run(f' - {List[1]}\n').bold
-			elif isinstance(List[0], list):
+			elif ParagraphType == 3:
 				Paragraph.add_run(List[1] + "\n").bold = True
 				
 				for Answer in List[0]:
@@ -212,4 +223,76 @@ End = time.time()
 
 print("Finished compiling!")
 print(f'Compiling took {str(End - Start)[:4]}s')
-input()
+
+UploadToDrive = None
+
+while UploadToDrive == None:
+	UploadToDrive = input("Upload to drive? [y/n] ").lower()
+	UploadToDrive = (UploadToDrive == "y" and True) or (UploadToDrive == "n" and False) or None
+
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+
+DriveService = build('drive', 'v3', credentials=InstalledAppFlow.from_client_secrets_file(
+	{
+		"installed": {
+			"client_id": ".apps.googleusercontent.com",
+			"project_id": "",
+			"auth_uri": "https://accounts.google.com/o/oauth2/auth",
+			"token_uri": "https://oauth2.googleapis.com/token",
+			"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+			"client_secret": "",
+			"redirect_uris": ["http://localhost"]
+		}
+	}, 
+	['https://www.googleapis.com/auth/drive']
+).run_local_server(port=0))
+
+def UploadFolder(FolderPath, FolderId):
+	DriveFiles = DriveService.files()
+
+	FolderName = os.path.basename(FolderPath)
+	NewDriveFolder = DriveFiles.list(
+		q=f"name='{FolderName}' and mimeType='application/vnd.google-apps.folder' and parents in '{FolderId}' and trashed = false",
+	).execute()['files']
+
+	if len(NewDriveFolder) > 0:
+		NewDriveFolder = NewDriveFolder[0]['id']
+	else:
+		NewDriveFolder = DriveFiles.create(body={
+			'name': FolderName,
+			'mimeType': 'application/vnd.google-apps.folder',
+			'parents': [FolderId]
+		}, fields='id').execute().get('id')
+
+	for ItemName in os.listdir(FolderPath):
+		ItemPath = os.path.join(FolderPath, ItemName)
+		
+		if os.path.isdir(ItemPath):
+			UploadFolder(ItemPath, NewDriveFolder) 
+		elif os.path.isfile(ItemPath):
+			ExistingFile = DriveFiles.list(
+				q=f"name='{ItemName}' and parents in '{NewDriveFolder}' and trashed = false",
+			).execute()['files']
+
+			if len(ExistingFile) > 0:
+				DriveFiles.update(
+					fileId = ExistingFile[0]['id'],
+					media_body=MediaFileUpload(ItemPath, resumable=True)
+				).execute()
+			else:
+				DriveFiles.create(
+					body={
+						'name': ItemName,
+						'parents': [NewDriveFolder]
+					}, 
+					media_body=MediaFileUpload(ItemPath, resumable=True)
+				).execute()
+
+			print(f"Uploaded file: {ItemName}")
+
+for Folder in os.listdir(NewFolder):
+	UploadFolder(os.path.join(NewFolder, Folder), '1dVlv1rxUc-221NOwMomQtb6hINh8JIsI')
+
+input("Finished uploading files")
